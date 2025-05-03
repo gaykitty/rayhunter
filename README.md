@@ -15,7 +15,7 @@ Linux/Qualcom devices, but this is the only one we have tested on.
 You can buy the orbic [using bezos bucks](https://www.amazon.com/Orbic-Verizon-Hotspot-Connect-Enabled/dp/B08N3CHC4Y),
 or on [eBay](https://www.ebay.com/sch/i.html?_nkw=orbic+rc400l).
 
-## Setup (Mac, Linux)
+## Setup
 
 1. Download the latest `release.tar` from the [Rayhunter releases page](https://github.com/EFForg/rayhunter/releases)
 2. Decompress the `release.tar` archive. Open the terminal and navigate to the folder
@@ -27,27 +27,23 @@ or on [eBay](https://www.ebay.com/sch/i.html?_nkw=orbic+rc400l).
     ```
 
 3. Turn on the Orbic device by holding the power button for 3 seconds. Plug it into your computer using a USB-C Cable.
-4. Run the install script for your operating system:
+4. Run the installer for your operating system:
 
     ```bash
-    ./install.sh
+    # Substitute ubuntu-24 for the right platform:
+    # ubuntu-24-aarch64, macos-arm, macos-intel, windows-x86_64
+    ./installer-ubuntu-24 orbic
     ```
 
     The device will restart multiple times over the next few minutes.
 
-    You will know it is done when you see terminal output that says `checking for rayhunter server...success!`
+    You will know it is done when you see terminal output that says `Testing rayhunter... done`
 
 5. Rayhunter should now be running! You can verify this by following the instructions below to [view the web UI](#usage-viewing-the-web-ui). You should also see a green line flash along the top of top the display on the device.
 
 ### Installation Notes
 
-* Note: If you are installing from the cloned GitHub repository please see the development instructions below, running `install.sh` from the git tree will not work.
-* The install script has only been tested for Linux on the latest version of Ubuntu. If it fails you will need to follow the install steps outlined in **Development** below.
 * On macOS if you encounter an error that says "No Orbic device found," it may because you the "Allow accessories to connect" security setting set to "Ask for approval." You may need to temporarily change it to "Always" for the script to run. Make sure to change it back to a more secure setting when you're done.
-
-## Setup (Windows)
-
-We don't currently support automated installs on Windows.
 
 ## Updating
 
@@ -133,7 +129,13 @@ rustup target add x86_64-apple-darwin
 rustup target add x86_64-pc-windows-gnu
 ```
 
-Now you can root your device and install Rayhunter by running `./tools/install-dev.sh`
+Now you can root your device and install Rayhunter by running:
+
+```sh
+(cd bin/web && npm i && npm run build)
+cargo build --bin rayhunter-daemon --target armv7-unknown-linux-musleabihf --release --no-default-features --features orbic
+cargo run --bin installer orbic
+```
 
 ## Support and Discussion
 
