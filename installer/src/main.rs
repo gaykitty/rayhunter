@@ -80,13 +80,13 @@ async fn run_function() -> Result<(), Error> {
                         eprintln!("You cannot use --root and specify a command at the same time");
                         std::process::exit(64);
                     }
-                    orbic::enable_command_mode()?;
+                    orbic::enable_command_mode().await?;
                 } else if serial_cmd.command.is_empty() {
                     eprintln!("Command cannot be an empty string");
                     std::process::exit(64);
                 } else {
                     let cmd = serial_cmd.command.join(" ");
-                    match orbic::open_orbic()? {
+                    match orbic::open_orbic().await? {
                         Some(interface) => orbic::send_serial_cmd(&interface, &cmd).await?,
                         None => bail!(orbic::ORBIC_NOT_FOUND),
                     }

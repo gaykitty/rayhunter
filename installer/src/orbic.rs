@@ -6,7 +6,7 @@ use adb_client::{ADBDeviceExt, ADBUSBDevice, RustADBError};
 use anyhow::{Context, Result, anyhow, bail};
 use nusb::hotplug::HotplugEvent;
 use nusb::transfer::{Control, ControlType, Recipient, RequestBuffer};
-use nusb::{Device, Interface};
+use nusb::{Device, Interface, MaybeFuture};
 use sha2::{Digest, Sha256};
 use tokio::time::sleep;
 use tokio_stream::StreamExt;
@@ -36,7 +36,7 @@ macro_rules! echo {
 
 pub async fn install() -> Result<()> {
     let mut adb_device = force_debug_mode().await?;
-    let serial_interface = open_orbic()?.ok_or_else(|| anyhow!(ORBIC_NOT_FOUND))?;
+    let serial_interface = open_orbic().await?.ok_or_else(|| anyhow!(ORBIC_NOT_FOUND))?;
     echo!("Installing rootshell... ");
     setup_rootshell(&serial_interface, &mut adb_device).await?;
     println!("done");
@@ -51,7 +51,7 @@ pub async fn install() -> Result<()> {
 
 async fn force_debug_mode() -> Result<ADBUSBDevice> {
     println!("Forcing a switch into the debug mode to enable ADB");
-    enable_command_mode()?;
+    enable_command_mode().await?;
     echo!("ADB enabled, waiting for reboot... ");
     let mut adb_device = wait_for_adb_shell().await?;
     println!("it's alive!");
@@ -365,15 +365,15 @@ pub async fn send_serial_cmd(interface: &Interface, command: &str) -> Result<()>
 /// Send a command to switch the device into generic mode, exposing serial
 ///
 /// If the device reboots while the command is still executing you may get a pipe error here, not sure what to do about this race condition.
-pub fn enable_command_mode() -> Result<()> {
-    if open_orbic()?.is_some() {
+pub async fn enable_command_mode() -> Result<()> {
+    if open_orbic().await?.is_some() {
         println!("Device already in command mode. Doing nothing...");
         return Ok(());
     }
 
     let timeout = Duration::from_secs(1);
 
-    if let Some(device) = open_usb_device(VENDOR_ID, 0xf626)? {
+    if let Some(device) = open_usb_device(VENDOR_ID, 0xf626).await? {
         let enable_command_mode = Control {
             control_type: ControlType::Vendor,
             recipient: Recipient::Device,
@@ -383,6 +383,7 @@ pub fn enable_command_mode() -> Result<()> {
         };
         let interface = device
             .detach_and_claim_interface(1)
+            .wait()
             .context("detach_and_claim_interface(1) failed")?;
         if let Err(e) = interface.control_out_blocking(enable_command_mode, &[], timeout) {
             // If the device reboots while the command is still executing we
@@ -399,19 +400,21 @@ pub fn enable_command_mode() -> Result<()> {
 }
 
 /// Get an Interface for the orbic device
-pub fn open_orbic() -> Result<Option<Interface>> {
+pub async fn open_orbic() -> Result<Option<Interface>> {
     // Device after initial mode switch
-    if let Some(device) = open_usb_device(VENDOR_ID, PRODUCT_ID)? {
+    if let Some(device) = open_usb_device(VENDOR_ID, PRODUCT_ID).await? {
         let interface = device
             .detach_and_claim_interface(1) // will reattach drivers on release
+            .await
             .context("detach_and_claim_interface(1) failed")?;
         return Ok(Some(interface));
     }
 
     // Device with rndis enabled as well
-    if let Some(device) = open_usb_device(VENDOR_ID, 0xf622)? {
+    if let Some(device) = open_usb_device(VENDOR_ID, 0xf622).await? {
         let interface = device
             .detach_and_claim_interface(1) // will reattach drivers on release
+            .await
             .context("detach_and_claim_interface(1) failed")?;
         return Ok(Some(interface));
     }
@@ -420,15 +423,15 @@ pub fn open_orbic() -> Result<Option<Interface>> {
 }
 
 /// General function to open a USB device
-fn open_usb_device(vid: u16, pid: u16) -> Result<Option<Device>> {
-    let devices = match nusb::list_devices() {
+async fn open_usb_device(vid: u16, pid: u16) -> Result<Option<Device>> {
+    let devices = match nusb::list_devices().await {
         Ok(d) => d,
         Err(_) => return Ok(None),
     };
 
     for device in devices {
         if device.vendor_id() == vid && device.product_id() == pid {
-            match device.open() {
+            match device.open().await {
                 Ok(d) => return Ok(Some(d)),
                 Err(e) => bail!("device found but failed to open: {}", e),
             }

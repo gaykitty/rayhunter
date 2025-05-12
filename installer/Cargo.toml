@@ -14,7 +14,7 @@ clap = { version = "4.5.37", features = ["derive"] }
 hyper = "1.6.0"
 hyper-util = "0.1.11"
 md5 = "0.7.0"
-nusb = "0.1.13"
+nusb = { git = "https://github.com/cstrahan/nusb.git", rev = "8e234a53dc41e1f6ed782dbf8ee0b2bc67339180" }
 reqwest = { version = "0.12.15", features = ["json"], default-features = false }
 serde = { version = "1.0.219", features = ["derive"] }
 sha2 = "0.10.8"
@@ -25,6 +25,6 @@ tokio-stream = "0.1.17"
 [dependencies.adb_client]
 # path = "../../adb_client/adb_client"
 git = "https://github.com/gaykitty/adb_client.git"
-branch = "rayhunter"
+branch = "macos-detach"
 default-features = false
 features = ["usb"]
